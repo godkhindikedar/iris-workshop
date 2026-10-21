@@ -16,7 +16,7 @@ Perfect for teaching web development, APIs, databases, or any coding topic!
 
 ## This Repo: Redis Iris Workshop
 
-This copy of the template runs the [Redis Iris demos](code/iris/README.md) (Semantic Routing, LangCache, Agent Memory, Context Retriever). Before the first `docker compose up`, nothing else is needed; once it is running, fill in the credentials in `code/iris/.env` and run `make setup` in the Terminal panel (see `docs/setup/setup.md`). The demo needs one Claude-compatible API key and no OpenAI account (embeddings run locally); it starts without one and the chat says the key is missing and the backend restarts itself when `.env` changes.
+This copy of the template runs the [Redis Iris demos](code/iris/README.md) (Semantic Routing, LangCache, Agent Memory, Context Retriever). Before the first `docker compose up`, nothing else is needed; once it is running, fill in the credentials in `code/iris/.env` and run `make setup` in the Terminal panel (see `docs/setup/setup.md`). The agent runs on Gemini through Google Cloud (Vertex AI), using a service account key saved as `secrets/gcp-key.json`; the setup page has the steps. Embeddings run locally, so there is no other model account to create. The demo starts without the key and the chat says it is missing; the backend restarts itself when `.env` changes.
 
 ## Try the Demo
 

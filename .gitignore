@@ -3,3 +3,7 @@ node_modules
 *.log
 .DS_Store
 
+
+# Google service account keys (see docs/setup/setup.md)
+secrets/*
+!secrets/.gitkeep

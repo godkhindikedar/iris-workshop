@@ -25,9 +25,7 @@ def test_simple_rag_service_init(monkeypatch):
                 body_fields = ["content"]
 
     class FakeSettings:
-        anthropic_api_key = "test"
-        anthropic_base_url = None
-        chat_model_name = "claude-sonnet-5-5"
+        chat_model_name = "gemini-3.8-flash"
 
     monkeypatch.setattr("backend.app.rag_service.get_active_domain", lambda s: FakeDomain())
     service = SimpleRAGService(FakeSettings())

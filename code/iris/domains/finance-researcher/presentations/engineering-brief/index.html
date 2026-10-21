@@ -507,11 +507,7 @@
           <div class="two-col">
             <div class="card blue">
               <pre><code class="language-python">async def create_agent(settings, internal_tools, cs_service, checkpointer=None):
-    model = ChatOpenAI(
-        model=settings.openai_chat_model,
-        temperature=0.2,
-        api_key=settings.openai_api_key,
-    )
+    model = build_chat_model(settings)
 
     tools = _make_internal_tools(internal_tools)
     mcp_defs = await cs_service.list_tools()

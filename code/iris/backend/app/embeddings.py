@@ -1,7 +1,7 @@
 """Embeddings for the guardrail, tool routing, Simple RAG and the seeded documents.
 
 Everything runs locally with a sentence-transformers model, so the demo needs no embeddings API key
-(Claude has no embeddings API). The default model is small (384 dimensions) and is downloaded from
+(the chat model is not used for embeddings). The default model is small (384 dimensions) and is downloaded from
 Hugging Face on first use, then cached.
 
 Settings:

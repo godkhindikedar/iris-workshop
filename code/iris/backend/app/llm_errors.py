@@ -1,14 +1,15 @@
-"""Classify LLM errors (Claude API / Bedrock / LiteLLM) for user-facing SSE messages."""
+"""Classify LLM errors (Gemini on Vertex AI) for user-facing SSE messages."""
 
 from __future__ import annotations
 
-import json
-from typing import Any
-
-_BUDGET_MESSAGE = (
-    "Session LLM budget is exhausted. Ask your facilitator to regenerate the LiteLLM key or raise the budget."
+_QUOTA_MESSAGE = (
+    "The model is rate limited or out of quota right now. Wait a moment and try again, or ask for a higher "
+    "Vertex AI quota for this model."
 )
-_RATE_LIMIT_MESSAGE = "The model is rate limited right now (too many tokens per minute). Wait a moment and try again."
+_PERMISSION_MESSAGE = (
+    "Google Cloud refused the request. Check that the service account has the Agent Platform User role (roles/aiplatform.user) and that "
+    "the model is enabled for the project."
+)
 
 
 def _truncate_detail(text: str, *, max_len: int = 280) -> str:
@@ -18,48 +19,17 @@ def _truncate_detail(text: str, *, max_len: int = 280) -> str:
     return normalized[: max_len - 1] + "…"
 
 
-def _coerce_body(raw: object) -> dict[str, Any]:
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str):
-        try:
-            parsed = json.loads(raw)
-            return parsed if isinstance(parsed, dict) else {}
-        except json.JSONDecodeError:
-            return {}
-    return {}
-
-
-def _error_type_from_body(body: dict[str, Any]) -> str | None:
-    err = body.get("error")
-    if isinstance(err, dict):
-        t = err.get("type")
-        if isinstance(t, str):
-            return t
-    return None
-
-
 def classify_llm_exception(exc: BaseException) -> tuple[str, str]:
     """Return ``(error_code, user_message)`` for SSE ``error`` events.
 
-    Codes: ``budget_exceeded`` (a LiteLLM-style spend limit), ``rate_limited`` (HTTP 429) and
-    ``llm_error`` (anything else).
+    Codes: ``rate_limited`` (HTTP 429 / RESOURCE_EXHAUSTED), ``permission_denied`` (HTTP 403 / 401)
+    and ``llm_error`` (anything else).
     """
-    try:
-        from anthropic import APIStatusError, RateLimitError
-    except ImportError:  # pragma: no cover - anthropic is a hard dependency
-        APIStatusError = RateLimitError = None  # type: ignore[misc, assignment]
-
-    if APIStatusError is not None and isinstance(exc, APIStatusError):
-        body = _coerce_body(getattr(exc, "body", None))
-        if _error_type_from_body(body) == "budget_exceeded":
-            return ("budget_exceeded", _BUDGET_MESSAGE)
-    if RateLimitError is not None and isinstance(exc, RateLimitError):
-        return ("rate_limited", _RATE_LIMIT_MESSAGE)
-
     text = str(exc)
     lower = text.lower()
-    if "budget_exceeded" in lower or "budget has been exceeded" in lower:
-        return ("budget_exceeded", _BUDGET_MESSAGE)
-
+    status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if status == 429 or "resource_exhausted" in lower or "quota exceeded" in lower or "429" in lower[:40]:
+        return ("rate_limited", _QUOTA_MESSAGE)
+    if status in (401, 403) or "permission_denied" in lower or "permission denied" in lower:
+        return ("permission_denied", _PERMISSION_MESSAGE)
     return ("llm_error", _truncate_detail(text))

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import os
 
-# main.py constructs Claude-backed services at import time.
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
+# main.py constructs LLM-backed services at import time.
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "test-project")
+os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", "/nonexistent/test-key.json")
 
 import asyncio
 import json

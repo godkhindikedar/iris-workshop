@@ -52,7 +52,7 @@ The `legacy/context-engine-demos/` directory contains an archived copy of the or
 | [Context Surfaces](https://redis.io/docs/latest/develop/ai/context-engine/context-retriever/) | Admin key |
 | [Agent Memory](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) | Base URL, store ID, API key |
 | [LangCache](https://redis.io/docs/latest/develop/ai/context-engine/langcache/) | Host, cache ID, API key |
-| Claude | An API key for the Claude API or a Claude-compatible endpoint such as Amazon Bedrock |
+| Gemini (Google Cloud) | A project ID and a service account key with the Agent Platform User role (`roles/aiplatform.user`) (see the workshop's setup page) |
 
 ### First time
 

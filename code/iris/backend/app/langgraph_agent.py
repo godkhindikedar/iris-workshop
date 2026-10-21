@@ -414,7 +414,7 @@ async def create_checkpointer(settings: Settings) -> AsyncRedisSaver:
     return checkpointer
 
 
-# Characters of tool-definition JSON per billed Claude input token, calibrated against measured usage
+# Characters of tool-definition JSON per billed input token, calibrated against measured usage
 # (see scripts/measure_tokens.py). Only used for the "approx tokens saved" figure shown in the UI.
 _SCHEMA_CHARS_PER_TOKEN = 3.9
 

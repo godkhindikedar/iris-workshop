@@ -13,13 +13,10 @@ if ENV_PATH.exists():
 
 DEFAULT_MEMORY_SIMILARITY_THRESHOLD = 0.3
 
-# Lets the Anthropic client be constructed (and the app boot) before a key is configured.
-# Chat requests are rejected with a clear message until a real key is set.
-LLM_KEY_PLACEHOLDER = "missing-anthropic-api-key"
-
-# Default Claude model when LLM_MODEL is unset (Claude API model ID). On Amazon Bedrock set LLM_MODEL
-# to the Bedrock ID, e.g. "anthropic.claude-sonnet-5-5".
-DEFAULT_CLAUDE_MODEL = "claude-sonnet-5-5"
+# Default Gemini model when LLM_MODEL is unset. LLM_MODEL may be the bare ID or the Model Garden
+# resource name (publishers/google/models/<id>).
+DEFAULT_LLM_MODEL = "gemini-3.8-flash"
+MODEL_GARDEN_PREFIX = "publishers/google/models/"
 
 # Local sentence-transformers model used for every embedding in the demo (guardrail, tool routing,
 # Simple RAG and the seeded policy documents). It runs inside the container, so no API key is needed.
@@ -34,12 +31,18 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Claude, through the Claude API or any Anthropic-compatible endpoint (such as Amazon Bedrock).
-    anthropic_api_key: str = Field(default="")
-    # Leave empty for the Claude API. For Bedrock: https://bedrock-mantle.<region>.api.aws/anthropic
-    anthropic_base_url: str | None = Field(default=None)
+    # Gemini on Google Cloud (Vertex AI Model Garden), authenticated with a service account key.
     llm_model: str = Field(default="")
+    # Cheaper model for answer verification (defaults to LLM_MODEL).
     llm_lightweight_model: str = Field(default="")
+    google_cloud_project: str = Field(default="")
+    # "global" lets Google pick the region; use a region such as us-central1 if your quota is regional.
+    google_cloud_location: str = Field(default="global")
+    # Path to the service account JSON key as seen inside the container (see docker-compose.yml).
+    google_application_credentials: str = Field(default="")
+    # Tokens Gemini may spend "thinking" before each reply. 0 turns thinking off (fastest); empty uses the
+    # model's default. Thinking adds seconds to every step of the agent loop.
+    llm_thinking_budget: int | None = Field(default=0)
 
     # Local embeddings. EMBEDDING_DIM must match the model; schemas size their vector fields from it.
     # Set EMBEDDING_MODEL=hash for deterministic fake vectors (tests and offline use only).
@@ -118,21 +121,25 @@ class Settings(BaseSettings):
 
     @property
     def chat_model_name(self) -> str:
-        """Claude model name for the agent."""
-        return self.llm_model or DEFAULT_CLAUDE_MODEL
+        """Gemini model ID for the agent."""
+        return self._model_id(self.llm_model)
 
     @property
     def lightweight_model_name(self) -> str:
-        return self.llm_lightweight_model or self.chat_model_name
+        return self._model_id(self.llm_lightweight_model) if self.llm_lightweight_model else self.chat_model_name
+
+    @staticmethod
+    def _model_id(configured: str) -> str:
+        return (configured or DEFAULT_LLM_MODEL).removeprefix(MODEL_GARDEN_PREFIX)
 
     @property
     def llm_configured(self) -> bool:
-        """True when a Claude-compatible API key is set."""
-        return bool(self.anthropic_api_key)
+        """True when the Google Cloud project and service account key are set."""
+        return bool(self.google_cloud_project and self.google_application_credentials)
 
     @property
     def llm_key_env_var(self) -> str:
-        return "ANTHROPIC_API_KEY"
+        return "GOOGLE_CLOUD_PROJECT and GOOGLE_APPLICATION_CREDENTIALS"
 
 
 def get_settings() -> Settings:

@@ -16,7 +16,7 @@ from context_surfaces import UnifiedClient, config as cs_config
 from context_surfaces.context_model import ContextModel, export_data_model
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
-from langchain_anthropic import ChatAnthropic
+from langchain_google_vertexai import ChatVertexAI
 from pydantic import BaseModel, Field, create_model
 
 NOTEBOOKS_DIR = Path(__file__).resolve().parent
@@ -35,7 +35,8 @@ ENTITY_FILES: dict[str, str] = {
 }
 
 REQUIRED_ENV_KEYS = (
-    "ANTHROPIC_API_KEY",
+    "GOOGLE_CLOUD_PROJECT",
+    "GOOGLE_APPLICATION_CREDENTIALS",
     "REDIS_HOST",
     "REDIS_PORT",
     "REDIS_PASSWORD",
@@ -49,7 +50,8 @@ REQUIRED_ENV_KEYS = (
 )
 
 WORKSHOP_CONFIG_DEFAULTS: dict[str, str] = {
-    "LLM_MODEL": "claude-sonnet-5-5",
+    "LLM_MODEL": "gemini-3.8-flash",
+    "GOOGLE_CLOUD_LOCATION": "global",
     "REDIS_USERNAME": "default",
     "REDIS_DB": "0",
     "REDIS_SSL": "false",
@@ -89,8 +91,9 @@ def _env_bool(key: str, default: bool = False) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    anthropic_api_key: str
-    anthropic_base_url: str | None
+    google_cloud_project: str
+    google_cloud_location: str
+    google_application_credentials: str
     llm_model: str
 
     redis_host: str
@@ -121,9 +124,10 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
-            anthropic_api_key=_env_str("ANTHROPIC_API_KEY"),
-            anthropic_base_url=_env_str("ANTHROPIC_BASE_URL") or None,
-            llm_model=_env_str("LLM_MODEL", "claude-sonnet-5-5"),
+            google_cloud_project=_env_str("GOOGLE_CLOUD_PROJECT"),
+            google_cloud_location=_env_str("GOOGLE_CLOUD_LOCATION", "global"),
+            google_application_credentials=_env_str("GOOGLE_APPLICATION_CREDENTIALS"),
+            llm_model=_env_str("LLM_MODEL", "gemini-3.8-flash").removeprefix("publishers/google/models/"),
             redis_host=_env_str("REDIS_HOST", "localhost"),
             redis_port=_env_int("REDIS_PORT", 6379),
             redis_username=_env_str("REDIS_USERNAME", "default"),
@@ -595,7 +599,7 @@ def validate_env(config: dict[str, str] | None = None) -> dict[str, str]:
         raise RuntimeError(
             "Missing required credentials in WORKSHOP_CONFIG:\n  - "
             + "\n  - ".join(missing)
-            + "\n\nPaste your Redis Cloud and Anthropic values into WORKSHOP_CONFIG, then re-run."
+            + "\n\nPaste your Redis Cloud and Google Cloud values into WORKSHOP_CONFIG, then re-run."
         )
     return {key: str(os.environ[key]).strip() for key in REQUIRED_ENV_KEYS}
 
@@ -836,16 +840,22 @@ async def _build_mcp_tools(cs_service: ContextSurfaceService) -> list[Any]:
     return [_make_mcp_tool(tool_def, cs_service) for tool_def in tool_defs]
 
 
-def _build_llm(settings: Settings) -> ChatAnthropic:
-    model_kw: dict[str, Any] = {
-        "model": settings.llm_model,
-        "temperature": 0.2,
-        "api_key": settings.anthropic_api_key,
-        "max_tokens": 4096,
-    }
-    if settings.anthropic_base_url:
-        model_kw["base_url"] = settings.anthropic_base_url
-    return ChatAnthropic(**model_kw)
+def _build_llm(settings: Settings) -> ChatVertexAI:
+    from google.oauth2 import service_account
+
+    credentials = service_account.Credentials.from_service_account_file(
+        settings.google_application_credentials,
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    return ChatVertexAI(
+        model_name=settings.llm_model,
+        project=settings.google_cloud_project,
+        location=settings.google_cloud_location,
+        credentials=credentials,
+        temperature=0.2,
+        max_output_tokens=4096,
+        thinking_budget=0,
+    )
 
 
 async def chat_turn(

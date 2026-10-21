@@ -64,6 +64,8 @@ services:
     command: /backend.sh
     volumes:
       - ./code:/code
+      # Google service account key for Gemini on Vertex AI (put gcp-key.json in ./secrets)
+      - ./secrets:/run/secrets:ro
       - iris-venv:/opt/venv
       - uv-cache:/root/.cache/uv
       # Local embedding model (downloaded once on first use)

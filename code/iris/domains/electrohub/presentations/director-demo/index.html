@@ -583,7 +583,7 @@ async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str
           <div class="two-col">
             <div class="card blue">
               <pre><code class="language-python">async def create_agent(settings, internal_tools, cs_service, checkpointer=None):
-    model = ChatOpenAI(...)
+    model = build_chat_model(settings)
 
     tools = _make_internal_tools(internal_tools)
     mcp_defs = await cs_service.list_tools()

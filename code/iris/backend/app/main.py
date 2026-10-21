@@ -529,6 +529,9 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
     phases.append(("agent_init", timer.phase("Agent init")))
 
     defer_final_answer = runtime_config.get("enable_post_model_verifier", False)
+    # Gemini answers without narrating before tool calls, so its text is streamed as it arrives.
+    stream_live = not defer_final_answer
+    streamed_runs: set[str] = set()
     config = {"configurable": {"thread_id": thread_id}}
 
     # ── Semantic tool routing: attach only the tools this question needs ──
@@ -771,10 +774,11 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
                         durationText=_format_elapsed_ms(duration_ms),
                         ts=timer.elapsed_ms(),
                     )
-                # Claude narrates before tool calls ("Let me check your orders...") in the same message.
-                # Those chunks are held back (see on_chat_model_stream), so send only the text of a
-                # model call that made no tool calls, which is the final answer.
-                if not defer_final_answer:
+                # Text that was not streamed live (for example when the model did not stream) is sent here:
+                # only the text of a model call that made no tool calls, which is the final answer.
+                if event["run_id"] in streamed_runs:
+                    streamed_runs.discard(event["run_id"])
+                elif not defer_final_answer:
                     output = event["data"].get("output")
                     if output is not None and not getattr(output, "tool_calls", None):
                         answer = message_text(getattr(output, "content", ""))
@@ -783,9 +787,15 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
                             yield sse("text-delta", delta=answer)
 
             elif kind == "on_chat_model_stream":
-                # Intentionally empty: text is sent once per model call in on_chat_model_end, so
-                # Claude's pre-tool narration never reaches the customer.
-                continue
+                # Stream the answer tokens as they arrive (calls that go on to use tools carry no text).
+                if stream_live:
+                    chunk = event["data"].get("chunk")
+                    if chunk is not None and not getattr(chunk, "tool_call_chunks", None):
+                        delta = message_text(getattr(chunk, "content", ""))
+                        if delta:
+                            streamed_runs.add(event["run_id"])
+                            final_text += delta
+                            yield sse("text-delta", delta=delta)
 
     except Exception as exc:
         error_type = type(exc).__name__

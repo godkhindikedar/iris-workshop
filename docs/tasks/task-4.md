@@ -6,7 +6,7 @@ Cut the cost of every agent question by sending the LLM only the tools it needs,
 
 ## Why it matters
 
-The Reddash agent has 57 tools. Every time it calls the model, all the tool definitions are sent along: about **25,000 tokens per call on Claude**, and one question makes 2-4 calls. Most questions only need a few of those tools.
+The Reddash agent has 57 tools. Every time it calls the model, all the tool definitions are sent along: about **20,000 tokens per call on Gemini**, and one question makes 2-4 calls. Most questions only need a few of those tools.
 
 Semantic tool routing fixes that. A second semantic router (stored in Redis, like the guardrail) matches the question against groups of example questions and attaches only the matching group's tools. It reuses the embedding the guardrail already computed, so it adds a Redis vector search and no extra model call. If nothing matches, every tool is attached, so routing can save tokens but never removes the agent's ability to answer.
 
@@ -20,7 +20,7 @@ In the **Terminal** panel run:
 TOOL_ROUTING_ENABLED=false uv run python scripts/measure_tokens.py "I reported a missing item last week - was that resolved?"
 ```
 
-Note the **input tokens per call** and the **TOTAL tokens**. (This makes real Claude calls and uses your key's quota.)
+Note the **input tokens per call** and the **TOTAL tokens**. (This makes real Gemini calls and uses your project's Vertex AI quota.)
 
 ### Step 2: Measure with routing
 
@@ -28,7 +28,7 @@ Note the **input tokens per call** and the **TOTAL tokens**. (This makes real Cl
 TOOL_ROUTING_ENABLED=true uv run python scripts/measure_tokens.py "I reported a missing item last week - was that resolved?"
 ```
 
-The question now matches the `support_tickets` and `policies` routes, so only 15 of 57 tools are sent. In our test the total dropped from about **77,000** to about **21,000** tokens (72% fewer). Across five sample questions it was about 392,000 against 117,000 tokens, roughly 70% fewer.
+The question now matches the `support_tickets` and `policies` routes, so only 15 of 57 tools are sent. In our test the total dropped from about **78,000** to about **19,000** tokens (75% fewer). Across three sample questions it was about 208,000 against 63,000 tokens, roughly 70% fewer.
 
 ### Step 3: Watch it in the app
 

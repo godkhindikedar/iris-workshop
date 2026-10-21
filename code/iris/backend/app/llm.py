@@ -1,4 +1,4 @@
-"""Chat model (Claude) and provider-neutral message helpers."""
+"""Chat model (Gemini on Google Cloud Vertex AI) and message helpers."""
 
 from __future__ import annotations
 
@@ -6,34 +6,38 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from backend.app.settings import LLM_KEY_PLACEHOLDER, Settings
+from backend.app.settings import Settings
 
-# Anthropic requires max_tokens on every request.
-ANTHROPIC_MAX_TOKENS = 4096
+MAX_OUTPUT_TOKENS = 4096
 
 
 def build_chat_model(settings: Settings, *, lightweight: bool = False) -> BaseChatModel:
-    """Build the Claude chat model through the Claude API or any Anthropic-compatible endpoint.
+    """Build the Gemini chat model on Vertex AI, authenticated with the service account key.
 
     ``lightweight=True`` returns the cheaper model used for answer verification.
     """
-    from langchain_anthropic import ChatAnthropic
+    from google.oauth2 import service_account
+    from langchain_google_vertexai import ChatVertexAI
 
-    kwargs: dict[str, Any] = {
-        "model": settings.lightweight_model_name if lightweight else settings.chat_model_name,
-        "temperature": 0.2,
-        "max_tokens": ANTHROPIC_MAX_TOKENS,
-        "api_key": settings.anthropic_api_key or LLM_KEY_PLACEHOLDER,
-    }
-    if settings.anthropic_base_url:
-        kwargs["base_url"] = settings.anthropic_base_url
-    return ChatAnthropic(**kwargs)
+    credentials = service_account.Credentials.from_service_account_file(
+        settings.google_application_credentials,
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    return ChatVertexAI(
+        model_name=settings.lightweight_model_name if lightweight else settings.chat_model_name,
+        project=settings.google_cloud_project,
+        location=settings.google_cloud_location or "global",
+        credentials=credentials,
+        temperature=0.2,
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        thinking_budget=settings.llm_thinking_budget,
+    )
 
 
 def message_text(content: Any) -> str:
     """Plain text of a message's content.
 
-    Claude returns a list of blocks (text, tool_use, thinking...), of which only the text blocks are
+    Gemini can return a list of blocks (text, tool_use, thinking...), of which only the text blocks are
     user-visible. A plain string is returned unchanged.
     """
     if isinstance(content, str):

@@ -43,8 +43,8 @@ def test_matching_ignores_case_and_an_empty_current_id_matches_nothing():
 
 
 def test_clear_surface_env_blanks_only_the_surface_keys():
-    text = "ANTHROPIC_API_KEY=sk-x\nCTX_SURFACE_ID=abc\nMCP_AGENT_KEY=secret\nMEMORY_STORE_ID=keep\n"
-    assert clear_surface_env(text) == "ANTHROPIC_API_KEY=sk-x\nCTX_SURFACE_ID=\nMCP_AGENT_KEY=\nMEMORY_STORE_ID=keep\n"
+    text = "GOOGLE_CLOUD_PROJECT=proj\nCTX_SURFACE_ID=abc\nMCP_AGENT_KEY=secret\nMEMORY_STORE_ID=keep\n"
+    assert clear_surface_env(text) == "GOOGLE_CLOUD_PROJECT=proj\nCTX_SURFACE_ID=\nMCP_AGENT_KEY=\nMEMORY_STORE_ID=keep\n"
 
 
 def test_confirmation_rules():

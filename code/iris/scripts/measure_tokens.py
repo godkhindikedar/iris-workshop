@@ -1,4 +1,4 @@
-"""Measure Claude token usage for demo questions, one model call at a time.
+"""Measure LLM token usage for demo questions, one model call at a time.
 
 Run it with semantic tool routing off and on to see how many tokens routing saves:
 
