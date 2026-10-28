@@ -118,4 +118,4 @@ If the App panel shows a 502 error, the backend is still starting (the first sta
 
 Tip: to look at the data the demo loaded, import the generated `iris/redis-insight-import.json` into **Redis Insight**. [Task 2](/tasks/task-2.md) has the steps.
 
-Ready? Start [Task 1](/tasks/task-1.md).
+Ready? Follow the [first-time learner path](/learn/first-hour.md), or jump to [Task 1](/tasks/task-1.md). Skim [Redis Iris Concepts](/concepts/iris.md) if the product names are new.

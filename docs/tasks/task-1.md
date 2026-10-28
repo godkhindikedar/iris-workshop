@@ -4,6 +4,8 @@
 
 Run the demo's scripted path and see which Iris component handles each message.
 
+New here? Pair this task with [Redis Iris Concepts](/concepts/iris.md) and the [first-time learner path](/learn/first-hour.md).
+
 ## Instructions
 
 1. In the **App** panel, ask **"Why is my order running late?"**

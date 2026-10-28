@@ -4,9 +4,9 @@
 
 - Semantic Routing, LangCache, Agent Memory
 - Context Retriever over live Redis data
-- A runnable demo in your browser
+- A first-hour path for new learners
 
-[Get Started](README.md)
+[Get Started](home.md)
 
 <!-- background color -->
 ![color](#091a23)

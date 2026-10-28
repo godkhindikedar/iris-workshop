@@ -1,6 +1,8 @@
 - Getting Started
   - [Welcome](/home.md)
   - [Setup Guide](/setup/setup.md)
+  - [First-time learner path](/learn/first-hour.md)
+  - [Redis Iris Concepts](/concepts/iris.md)
 
 - Workshop Tasks
   - [Task 1: Meet the Agent](/tasks/task-1.md)

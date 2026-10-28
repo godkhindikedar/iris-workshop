@@ -1,19 +1,39 @@
 # Welcome to the Redis Iris Workshop
 
-In this workshop you will run and explore a working AI agent built on **Redis Iris**, Redis's unified context engine for AI agents.
+This project is a **browser workbench** around a working AI support agent. The agent is not a toy chatbot over a PDF: it is a **LangGraph** (ReAct) loop on **Gemini (Vertex AI)** that reads and writes **Redis** through **Redis Iris**.
 
-## What You'll Learn
+The default story is **Reddash**, a food-delivery help desk. The same pipeline can switch to electronics retail, banking, healthcare, and other **domain packs** without rewriting the Iris stages.
 
-- How **Semantic Routing** blocks off-topic questions before they reach the LLM
-- How **LangCache** answers repeated questions from a semantic cache
-- How **Agent Memory** carries short-term and long-term context between turns
-- How **Context Retriever** gives the agent schema-first access to business data in Redis
-- How a demo "domain" is defined, and how to change one
-- How to reuse Semantic Routing to send the agent only the tools each question needs, cutting token use by about 70% in our tests
+If you are new, start here: **[First-time learner path](learn/first-hour.md)** → then the four tasks. For “what is each product?”, read **[Redis Iris Concepts](concepts/iris.md)**.
 
-## How It Works
+## What this repo contains
 
-The demo is a food-delivery support agent (**Reddash**). The agent runs a pipeline for every message, and every stage reads from or writes to Redis (dotted lines): routes for Semantic Routing, cached responses for LangCache, short- and long-term memory for Agent Memory, and your business data for Context Retriever:
+| Piece | Role |
+|-------|------|
+| `docs/` | These Docsify pages (you are here) |
+| `code/iris/` | FastAPI backend, React chat UI, domain packs, scripts |
+| `workbench/` | One-URL UI: docs, VS Code, App, terminal, Redis Insight |
+| `docker-compose.yml` | Six containers behind nginx on port 80 |
+
+Iris demo data lives in the **Redis Cloud database** from `iris/.env`, not in the local Redis container. Task 2 shows how to inspect it.
+
+## Redis Iris concepts this workshop covers
+
+| Concept | You will actually do |
+|---------|----------------------|
+| **Semantic Routing** | Watch off-topic and prompt-injection messages blocked in the activity panel; add your own example phrases |
+| **LangCache** | Hit a pre-seeded semantic cache on a refund-policy question |
+| **Agent Memory** | Use seeded long-term facts, write a new memory, retrieve it in a new conversation |
+| **Context Retriever** | Let the agent call schema-first tools over live Redis records (orders, drivers, tickets, policies) |
+| **Semantic tool routing** | Measure Gemini token drop when only a subset of tools is attached |
+| **Simple RAG (contrast)** | Same UI, documents only — no operational data |
+| **Domain packs** | Edit Reddash or switch `DEMO_DOMAIN` |
+
+Not in the main UI path, but in the repo: a **Radish Bank notebook** that builds Context Retriever + Memory + LangCache by hand.
+
+## How a message flows
+
+Every stage below reads from or writes to Redis (dotted lines):
 
 ```mermaid
 graph LR
@@ -31,17 +51,17 @@ graph LR
     R -.- D
 ```
 
-## Your Workbench
+## Your workbench
 
 | Panel | What it is |
 |-------|-----------|
 | **Code** | VS Code with the demo in `iris/` |
-| **App** | The chat UI, with the Redis Iris activity panel |
-| **Terminal** | A shell in `/code/iris` for `make` commands and tests |
-| **Redis Insight** | Browse the data the demo loads into Redis (open it from the ☰ menu and import your database first, see [Task 2](/tasks/task-2.md)) |
+| **App** | Chat UI and the Redis Iris activity panel |
+| **Terminal** | Shell in `/code/iris` for `make` and tests |
+| **Redis Insight** | Browse loaded keys (☰ menu; import the DB first — [Task 2](/tasks/task-2.md)) |
 
-Backend changes reload automatically; frontend changes hot-reload in the App panel.
+## Getting started
 
-## Getting Started
-
-Head to the [Setup Guide](setup/setup.md), then start with [Task 1](tasks/task-1.md).
+1. [Setup Guide](setup/setup.md) — credentials, Gemini, `make setup`
+2. [First-time learner path](learn/first-hour.md) — ordered hour of exercises
+3. [Task 1](tasks/task-1.md) if you want to jump straight into the scripted chat

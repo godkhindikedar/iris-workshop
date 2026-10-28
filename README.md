@@ -18,6 +18,13 @@ Perfect for teaching web development, APIs, databases, or any coding topic!
 
 This copy of the template runs the [Redis Iris demos](code/iris/README.md) (Semantic Routing, LangCache, Agent Memory, Context Retriever). Before the first `docker compose up`, nothing else is needed; once it is running, fill in the credentials in `code/iris/.env` and run `make setup` in the Terminal panel (see `docs/setup/setup.md`). The agent runs on Gemini through Google Cloud (Vertex AI), using a service account key saved as `secrets/gcp-key.json`; the setup page has the steps. Embeddings run locally, so there is no other model account to create. The demo starts without the key and the chat says it is missing; the backend restarts itself when `.env` changes.
 
+**First-time learners:** after `docker compose up`, open http://localhost and use the docs sidebar:
+
+1. [Welcome](docs/home.md) — what the project is
+2. [Setup](docs/setup/setup.md) — credentials and `make setup`
+3. [Concepts](docs/concepts/iris.md) — what each Iris product does in this demo
+4. [First-hour path](docs/learn/first-hour.md) — ordered steps through Tasks 1–4
+
 ## Try the Demo
 
 See what your attendees will experience:
