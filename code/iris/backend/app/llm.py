@@ -11,18 +11,36 @@ from backend.app.settings import Settings
 MAX_OUTPUT_TOKENS = 4096
 
 
+def load_google_credentials(settings: Settings) -> Any:
+    """Google credentials from GOOGLE_APPLICATION_CREDENTIALS, which can be either file type:
+
+    * a service account key (JSON), or
+    * Application Default Credentials created by ``gcloud auth application-default login``
+      (an ``authorized_user`` JSON file), for accounts that cannot create service account keys.
+
+    With no file set, falls back to the environment's Application Default Credentials.
+    """
+    import google.auth
+
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    if settings.google_application_credentials:
+        credentials, _ = google.auth.load_credentials_from_file(settings.google_application_credentials, scopes=scopes)
+    else:
+        credentials, _ = google.auth.default(scopes=scopes)
+    # User credentials are billed against a project; use the configured one so no extra gcloud step is needed.
+    if settings.google_cloud_project and hasattr(credentials, "with_quota_project"):
+        credentials = credentials.with_quota_project(settings.google_cloud_project)
+    return credentials
+
+
 def build_chat_model(settings: Settings, *, lightweight: bool = False) -> BaseChatModel:
-    """Build the Gemini chat model on Vertex AI, authenticated with the service account key.
+    """Build the Gemini chat model on Vertex AI.
 
     ``lightweight=True`` returns the cheaper model used for answer verification.
     """
-    from google.oauth2 import service_account
     from langchain_google_vertexai import ChatVertexAI
 
-    credentials = service_account.Credentials.from_service_account_file(
-        settings.google_application_credentials,
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
+    credentials = load_google_credentials(settings)
     return ChatVertexAI(
         model_name=settings.lightweight_model_name if lightweight else settings.chat_model_name,
         project=settings.google_cloud_project,
@@ -31,6 +49,8 @@ def build_chat_model(settings: Settings, *, lightweight: bool = False) -> BaseCh
         temperature=0.2,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         thinking_budget=settings.llm_thinking_budget,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
     )
 
 

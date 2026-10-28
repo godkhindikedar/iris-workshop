@@ -123,6 +123,13 @@ backend:
 frontend:
 	@cd frontend && npm run dev -- --host 0.0.0.0 --port $(FRONTEND_PORT)
 
+# Sign in to Google from the web terminal so the backend can call Gemini as you (no key file needed).
+gcp-login:
+	@gcloud auth application-default login --no-launch-browser
+	@touch .env
+	@echo ""
+	@echo "Signed in. The backend restarts in a few seconds; then ask a question in the App panel."
+
 flush-redis:
 	@uv run python scripts/flush_redis.py
 

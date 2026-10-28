@@ -168,6 +168,11 @@ def _logo_src(path: Path) -> str:
 
 
 _INTERNAL_NAMES = {t.name for t in internal_tools.definitions}
+# Cheap local lookups run before the first model call instead of by the model (see cs_event_stream).
+_PREFETCH_TOOLS = (
+    (internal_tools.domain.manifest.identity.tool_name, "Signed-in customer"),
+    ("get_current_time", "Current time"),
+)
 
 
 def _is_memory_tool(name: str) -> bool:
@@ -583,6 +588,40 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
     final_text = ""
     thread_token = set_thread_id(thread_id)
 
+    # ── Prefetch: who is asking and what time it is ──
+    # These local lookups (about 2 ms) used to cost a whole Gemini round trip, because the model had to
+    # ask for them. Run them first and hand the results over as context for the first model call.
+    prefetched_context = ""
+    prefetch_sections: list[str] = []
+    for prefetch_name, prefetch_label in _PREFETCH_TOOLS:
+        if prefetch_name not in _INTERNAL_NAMES:
+            continue
+        yield sse("tool-call", toolName=prefetch_name, toolKind=_tool_kind(prefetch_name), payload={}, ts=timer.elapsed_ms())
+        prefetch_start = perf_counter()
+        try:
+            prefetch_result = await internal_tools.aexecute(prefetch_name, {})
+        except Exception as exc:  # the model can still call the tool itself
+            prefetch_result = {"error": str(exc)}
+        prefetch_ms = max(round((perf_counter() - prefetch_start) * 1000), 1)
+        yield sse("tool-result", toolName=prefetch_name, toolKind=_tool_kind(prefetch_name),
+                  payload=prefetch_result, durationMs=prefetch_ms, ts=timer.elapsed_ms())
+        if not (isinstance(prefetch_result, dict) and "error" in prefetch_result):
+            prefetch_sections.append(f"{prefetch_label}: {json.dumps(prefetch_result, default=str)}")
+    if prefetch_sections:
+        prefetched_context = "\n".join(prefetch_sections)
+
+    # Long-term memory search does not depend on the session write, so start it now and collect it later.
+    long_term_task: asyncio.Task | None = None
+    lt_start = perf_counter()
+    if memory_service.is_configured() and latest_message.strip():
+        long_term_task = asyncio.create_task(
+            memory_service.asearch_long_term_memory(
+                text=latest_message.strip(),
+                owner_id=current_user_id,
+                limit=5,
+            )
+        )
+
     # ── Phase 2: Session memory write ──
     if memory_service.is_configured() and latest_message.strip():
         try:
@@ -646,13 +685,16 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
             payload={"query": latest_message.strip(), "owner_id": current_user_id},
             ts=timer.elapsed_ms(),
         )
-        lt_start = perf_counter()
         try:
-            long_term_memories = await memory_service.asearch_long_term_memory(
-                text=latest_message.strip(),
-                owner_id=current_user_id,
-                limit=5,
-            )
+            if long_term_task is not None:
+                long_term_memories = await long_term_task
+            else:
+                lt_start = perf_counter()
+                long_term_memories = await memory_service.asearch_long_term_memory(
+                    text=latest_message.strip(),
+                    owner_id=current_user_id,
+                    limit=5,
+                )
             lt_ms = max(round((perf_counter() - lt_start) * 1000), 1)
             yield sse(
                 "tool-result",
@@ -685,12 +727,12 @@ async def cs_event_stream(request: ChatRequest) -> AsyncIterator[str]:
     if long_term_context:
         memory_context_sections.append(f"Long-term memory:\n{long_term_context}")
     enriched_message = latest_message
-    if memory_context_sections:
-        enriched_message = (
-            f"{latest_message}\n\n"
-            "Retrieved memory context:\n"
-            + "\n\n".join(memory_context_sections)
+    if prefetched_context:
+        enriched_message += (
+            "\n\nContext already looked up for you (do not call these tools again):\n" + prefetched_context
         )
+    if memory_context_sections:
+        enriched_message += "\n\nRetrieved memory context:\n" + "\n\n".join(memory_context_sections)
 
     # ── Phase 5: LangGraph agent loop ──
     agent_start = perf_counter()
@@ -929,12 +971,12 @@ async def domain_events_stream(cursor: str = "$") -> StreamingResponse:
     )
 
 
-async def _missing_key_stream(env_var: str) -> AsyncIterator[str]:
+async def _missing_key_stream(message: str) -> AsyncIterator[str]:
     yield sse(
         "text-delta",
         delta=(
-            f"\u26a0\ufe0f {env_var} is not set. Add it to `.env` "
-            "(the backend restarts automatically when `.env` changes), then ask again."
+            f"\u26a0\ufe0f Gemini is not set up yet. {message} "
+            "The backend restarts automatically when `.env` changes; then ask again."
         ),
     )
     yield sse("done", totalElapsedMs=0)
@@ -945,7 +987,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     question = request.messages[-1].content if request.messages else ""
 
     if not settings.llm_configured:
-        return StreamingResponse(_missing_key_stream(settings.llm_key_env_var), media_type="text/event-stream")
+        return StreamingResponse(_missing_key_stream(settings.llm_setup_message), media_type="text/event-stream")
 
     if request.mode == "simple_rag":
         return StreamingResponse(rag_event_stream(question), media_type="text/event-stream")

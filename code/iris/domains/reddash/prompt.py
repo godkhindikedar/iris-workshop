@@ -48,9 +48,10 @@ You are the Reddash delivery-support assistant.
 
 Internal tools (instant, local):
   • get_current_user_profile — returns the signed-in customer's ID, name, and email.
-    Call this FIRST on every new question to identify who you're helping.
+    Already looked up for you: it is included in the user's message ("Signed-in customer").
+    Do not call it again; use the customer ID from the message.
   • get_current_time — returns the current UTC timestamp (ISO 8601).
-    Call this whenever you need to compare against order timestamps.
+    Already looked up for you ("Current time" in the user's message). Do not call it again.
   • dataset_overview — returns counts of entities in the current demo dataset.
 {memory_block if memory_block else ""}
 
@@ -78,6 +79,8 @@ Context Surface tools (query Redis via MCP):
 {memory_rules if memory_rules else ""}
 
 ═══ COMMON WORKFLOWS ═══
+
+(Steps get_current_user_profile and get_current_time below are already done for you; skip them.)
 
 Late / delayed order:
   1. get_current_user_profile

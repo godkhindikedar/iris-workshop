@@ -48,8 +48,11 @@ services:
     environment:
       - VITE_BASE_PATH=/app/
       - VITE_USE_POLLING=1
+      # gcloud keeps its sign-in here, in a volume the backend also reads (see `make gcp-login`)
+      - CLOUDSDK_CONFIG=/gcp-adc
     volumes:
       - ./code:/code
+      - gcp-adc:/gcp-adc
       - /code/iris/frontend/node_modules
       - iris-venv:/opt/venv
       - uv-cache:/root/.cache/uv
@@ -66,6 +69,8 @@ services:
       - ./code:/code
       # Google service account key for Gemini on Vertex AI (put gcp-key.json in ./secrets)
       - ./secrets:/run/secrets:ro
+      # Application Default Credentials written by `make gcp-login` in the web terminal
+      - gcp-adc:/gcp-adc:ro
       - iris-venv:/opt/venv
       - uv-cache:/root/.cache/uv
       # Local embedding model (downloaded once on first use)
@@ -92,5 +97,6 @@ volumes:
   iris-venv:
   uv-cache:
   hf-cache:
+  gcp-adc:
   vscode-data:
   redisinsight-data:

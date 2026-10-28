@@ -38,11 +38,16 @@ class Settings(BaseSettings):
     google_cloud_project: str = Field(default="")
     # "global" lets Google pick the region; use a region such as us-central1 if your quota is regional.
     google_cloud_location: str = Field(default="global")
-    # Path to the service account JSON key as seen inside the container (see docker-compose.yml).
+    # Path, as seen inside the container (see docker-compose.yml), to a service account JSON key or to the
+    # Application Default Credentials file from `gcloud auth application-default login`.
     google_application_credentials: str = Field(default="")
     # Tokens Gemini may spend "thinking" before each reply. 0 turns thinking off (fastest); empty uses the
     # model's default. Thinking adds seconds to every step of the agent loop.
     llm_thinking_budget: int | None = Field(default=0)
+    # Fail fast instead of stalling: seconds to wait for one Gemini request, and how many times to retry
+    # a failed one (for example a 429). The library default is 6 retries with no timeout.
+    llm_timeout_seconds: float = Field(default=90.0)
+    llm_max_retries: int = Field(default=2)
 
     # Local embeddings. EMBEDDING_DIM must match the model; schemas size their vector fields from it.
     # Set EMBEDDING_MODEL=hash for deterministic fake vectors (tests and offline use only).
@@ -134,12 +139,24 @@ class Settings(BaseSettings):
 
     @property
     def llm_configured(self) -> bool:
-        """True when the Google Cloud project and service account key are set."""
-        return bool(self.google_cloud_project and self.google_application_credentials)
+        """True when the Google Cloud project is set and the credentials file exists."""
+        return bool(self.google_cloud_project) and bool(
+            self.google_application_credentials and Path(self.google_application_credentials).is_file()
+        )
 
     @property
     def llm_key_env_var(self) -> str:
         return "GOOGLE_CLOUD_PROJECT and GOOGLE_APPLICATION_CREDENTIALS"
+
+    @property
+    def llm_setup_message(self) -> str:
+        """What the chat tells the user while Gemini is not set up yet."""
+        if not self.google_cloud_project:
+            return "Set `GOOGLE_CLOUD_PROJECT` in `.env` to your Google Cloud project ID."
+        return (
+            "Google credentials not found. In the Terminal panel run `make gcp-login` and follow the prompts "
+            "(or save a service account key as `secrets/gcp-key.json`)."
+        )
 
 
 def get_settings() -> Settings:

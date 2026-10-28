@@ -25,10 +25,16 @@ def _decode_sse_payload(chunk: str) -> dict:
     return json.loads(payload)
 
 
-async def _collect_chat_events(request: ChatRequest) -> list[dict]:
+PREFETCHED = {"get_current_user_profile", "get_current_time"}
+
+
+async def _collect_chat_events(request: ChatRequest, *, keep_prefetch: bool = False) -> list[dict]:
     out = []
     async for chunk in main_mod.cs_event_stream(request):
-        out.append(_decode_sse_payload(chunk))
+        event = _decode_sse_payload(chunk)
+        if not keep_prefetch and event.get("toolName") in PREFETCHED:
+            continue  # looked up before the model call; these tests exercise the agent loop only
+        out.append(event)
     return out
 
 
@@ -134,3 +140,24 @@ def test_cs_event_stream_flushes_pending_tool_result_before_stream_error(monkeyp
     assert events[tool_result_index]["payload"]["error"] == "stream failed after tool call"
     assert "errorType" in events[error_index]
     assert events[-1]["type"] == "done"
+
+
+def test_profile_and_time_are_prefetched_into_the_first_model_message(monkeypatch):
+    seen = {}
+
+    class FakeAgent:
+        async def astream_events(self, agent_input, *_args, **_kwargs):
+            seen["message"] = agent_input["messages"][0]["content"]
+            return
+            yield  # pragma: no cover - makes this an async generator
+
+    _disable_preamble(monkeypatch)
+    _use_fake_agent(monkeypatch, FakeAgent())
+
+    events = asyncio.run(_collect_chat_events(_chat_request(), keep_prefetch=True))
+
+    tool_calls = [e["toolName"] for e in events if e["type"] == "tool-call"]
+    assert tool_calls[:2] == ["get_current_user_profile", "get_current_time"]
+    assert "Signed-in customer" in seen["message"]
+    assert "Current time" in seen["message"]
+    assert "do not call these tools again" in seen["message"]
